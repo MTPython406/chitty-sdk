@@ -38,14 +38,67 @@ def get_credential(key: str) -> Optional[str]:
 
     try:
         import keyring
+        # Try standard Python keyring format first
         value = keyring.get_password(_KEYRING_SERVICE, key)
         if value:
             return value
+
+        # Rust's keyring crate uses a different Windows Credential Manager format:
+        # target="{key}.{service}" with user="{key}"
+        # vs Python's: target="{service}" with user="{key}"
+        # Fall back to reading the Rust format directly on Windows
+        import sys
+        if sys.platform == "win32":
+            value = _read_wincred_rust_format(key)
+            if value:
+                return value
     except ImportError:
         pass
     except Exception:
         pass
 
+    return None
+
+
+def _read_wincred_rust_format(key: str) -> Optional[str]:
+    """Read a credential stored by Rust's keyring crate on Windows.
+
+    Rust keyring stores as target='{key}.{service}' with user='{key}',
+    while Python keyring uses target='{service}' with user='{key}'.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        advapi32 = ctypes.windll.advapi32
+        CRED_TYPE_GENERIC = 1
+
+        class CREDENTIAL(ctypes.Structure):
+            _fields_ = [
+                ("Flags", wintypes.DWORD),
+                ("Type", wintypes.DWORD),
+                ("TargetName", wintypes.LPWSTR),
+                ("Comment", wintypes.LPWSTR),
+                ("LastWritten", wintypes.FILETIME),
+                ("CredentialBlobSize", wintypes.DWORD),
+                ("CredentialBlob", ctypes.POINTER(ctypes.c_byte)),
+                ("Persist", wintypes.DWORD),
+                ("AttributeCount", wintypes.DWORD),
+                ("Attributes", ctypes.c_void_p),
+                ("TargetAlias", wintypes.LPWSTR),
+                ("UserName", wintypes.LPWSTR),
+            ]
+
+        pcred = ctypes.POINTER(CREDENTIAL)()
+        target = f"{key}.{_KEYRING_SERVICE}"
+        if advapi32.CredReadW(target, CRED_TYPE_GENERIC, 0, ctypes.byref(pcred)):
+            cred = pcred.contents
+            blob = ctypes.string_at(cred.CredentialBlob, cred.CredentialBlobSize)
+            value = blob.decode("utf-16-le").rstrip("\x00")
+            advapi32.CredFree(pcred)
+            return value if value else None
+    except Exception:
+        pass
     return None
 
 
