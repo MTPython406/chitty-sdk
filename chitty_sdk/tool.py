@@ -6,10 +6,19 @@ output in exactly the same way.
 """
 
 import functools
+import io
 import json
+import os
 import sys
 import traceback
 from typing import Any, Callable, Dict
+
+# Force UTF-8 on Windows (default cp1252 can't handle emoji/unicode in tool output)
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8", errors="replace")
+# Also set env for child processes
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 
 def read_input() -> Dict[str, Any]:
