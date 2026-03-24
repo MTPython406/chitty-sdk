@@ -11,7 +11,7 @@ Quick start::
         return {"items": data}
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # -- auth ------------------------------------------------------------------
 from chitty_sdk.auth import (
@@ -31,6 +31,8 @@ from chitty_sdk.config import (
     get_allowed_resources,
     check_resource,
     require_resource,
+    get_package_workspace,
+    get_locked_params,
 )
 
 # -- tool ------------------------------------------------------------------
@@ -75,6 +77,8 @@ __all__ = [
     "get_allowed_resources",
     "check_resource",
     "require_resource",
+    "get_package_workspace",
+    "get_locked_params",
     # tool
     "read_input",
     "success",

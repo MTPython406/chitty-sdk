@@ -133,3 +133,41 @@ def require_resource(resource_type: str, resource_id: str) -> None:
         ),
     }))
     sys.exit(0)
+
+
+# ---- Package workspace -------------------------------------------------- #
+
+def get_package_workspace() -> str:
+    """Return the persistent workspace directory for this package.
+
+    The platform sets ``CHITTY_PACKAGE_WORKSPACE`` to a per-package directory
+    (e.g. ``~/.chitty-workspace/workspaces/google-cloud/``).  Tool scripts can
+    use this to store files that persist across executions (SQL scripts,
+    exports, configs, temp data).
+
+    Returns:
+        Absolute path to the workspace directory, or empty string if not set.
+    """
+    return os.environ.get("CHITTY_PACKAGE_WORKSPACE", "")
+
+
+# ---- Locked params (sub-agent scoped tools) ------------------------------ #
+
+def get_locked_params() -> Dict[str, Any]:
+    """Return locked parameters injected by the sub-agent runtime.
+
+    When a tool is called by a sub-agent with scoped tools, the platform
+    merges ``locked_params`` into the tool arguments before execution.  This
+    helper reads the ``CHITTY_LOCKED_PARAMS`` env var for any additional
+    locked context that was set separately from the main args.
+
+    Returns:
+        Dict of locked parameter key-value pairs.  Empty dict if not set.
+    """
+    raw = os.environ.get("CHITTY_LOCKED_PARAMS", "")
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
